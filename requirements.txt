@@ -1,0 +1,14 @@
+loguru~=0.5.3
+XMind~=1.2.0
+xmindparser~=1.0.9
+requests~=2.26.0
+prettytable~=2.2.0
+jsonpath~=0.82
+PyYAML~=5.4.1
+Faker~=8.14.0
+arrow~=1.1.1
+progressbar~=2.5
+pycryptodome==3.10.1
+allure-pytest==2.9.43
+pytest==6.1.2
+pytest-dependency==0.5.1
