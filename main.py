@@ -14,8 +14,8 @@ import pytest
 from collections import defaultdict
 import config
 from config import logger, root_dir, get_global_value, xml_report_path, html_report_path
-from testcase.CaseManager import XmindCaseManager
 from pkgs.utils import remove_files, get_list_intersection
+from loader.case_loader import CaseLoader
 
 
 def test_parser():
@@ -37,15 +37,21 @@ def test_parser():
 
 
 def generate_py_testcase(args):
-    config.set_global_value("test_env", args.test_env)
+    """
+    加载用例数据并生成pytest用例文件
+    :param args:
+    :return:
+    """
     logger.info("删除testcase/test_*.py".center(70, '>'))
     remove_files(os.path.join(root_dir, "testcase"), "test_*.py")
     logger.info('测试开始'.center(70, '>'))
-    from testcase.CreateCases import create_testcases
+    from creator.pytest_creator import create_testcase
     data_subdir_list = args.data_subdir_list or [None]
     for data_subdir in data_subdir_list:
-        for suite_data in XmindCaseManager(sub_dir=data_subdir).make_case_files_info():
-            create_testcases(suite_data)
+        for item in CaseLoader(sub_dir=data_subdir).load():
+            for suite_name, suite_data in item.items():
+                create_testcase(suite_name, suite_data)
+    return True
 
 
 def run_pytest(args):
@@ -95,6 +101,8 @@ def generate_allure():
 
 if __name__ == '__main__':
     user_args = test_parser().parse_args()
+    config.set_global_value("test_env", user_args.test_env)
+
     generate_py_testcase(user_args)
     run_pytest(user_args)
-    generate_allure()
+    # generate_allure()

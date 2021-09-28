@@ -45,11 +45,8 @@ class BaseApi(object):
         logger.debug("响应：{}".format(response.text))
         rc = response.status_code
         report_summary = get_global_value("report_summary", defaultdict(int))
-        if str(rc).startswith('5'):
-            report_summary['5xx'] += 1
-        elif rc == 404:
-            report_summary['404'] += 1
-
+        if str(rc).startswith('5') or rc in [404, ]:
+            report_summary[str(rc)] += 1
         elif rc in [200, 400] and response.json().get('code', 0) == 500500:
             report_summary['500500'] += 1
         set_global_value('report_summary', report_summary)
@@ -83,33 +80,23 @@ class BaseApi(object):
         return str(re.sub("[^a-zA-Z0-9_]+", "_", s))
 
     def set_cache_kv(self, key, value):
-        if isinstance(value, str) and "$" in value:
-            value = self.replace_variables(value)
-        self._cache[key] = {
-            'value': value,
-            'time': int(time.time())
-        }
+        self._cache[key] = value
         logger.debug("Set Cache: {}:{}".format(key, self._cache[key]))
         return True
 
     # 缓存中写入字段
-    def set_cache(self, res: dict, expr, key):
+    def set_cache(self, res: dict, key, expr):
         """
         保存字段至缓存中
         :param res: 传入的数据,如接口返回值
-        :param expr: 传入数据中的字段名,即获取来源
         :param key: 保存在缓存中的字段名
+        :param expr: 传入数据中的字段名,即获取来源
         :return:
         """
-        if isinstance(expr, str) and "$" in expr:
-            expr = self.replace_variables(expr)
         values = self.json_path(res, expr)
         # print(values)
         assert values is not False, f'set_cache: {expr}的值不存在\n{res}'
-        self._cache[key] = {
-            'value': values[0] if isinstance(values, list) else values,
-            'time': int(time.time())
-        }
+        self._cache[key] = values
         logger.debug("Set Cache:  {}:{}".format(key, self._cache[key]))
         return True
 
@@ -120,14 +107,96 @@ class BaseApi(object):
         :param key:
         :return:
         """
-        values = self.json_path(self._cache, key)
-        assert values is not False, f'get_cache: {key}的值不存在'  # 取值失败直接让用例fail
-        if values is not False:
-            value = values[0].get('value')
-            logger.debug("get_cache {0}:{1}".format(key, value))
-            return value
-        logger.error(f'get_cache: {key}的值不存在')
-        return ''
+        value = self._cache.get(key)
+        assert value is not None, f'get_cache: {key}的值不存在'  # 取值失败直接让用例fail
+        logger.debug("get_cache {0}:{1}".format(key, value))
+        return value
+
+    # 替换内容中的{{变量}}, 返回新字符串
+    @staticmethod
+    def _replace_var(content, var_name, var_value):
+        """
+        替换内容中的变量, 返回字符串型，即 $var --> value
+        :param content:
+        :param var_name: $var
+        :param var_value:
+        :return:
+        """
+        if not isinstance(content, str):
+            content = json.dumps(content)
+        var_name = "{{" + str(var_name) + "}}"
+        var_value = json.dumps(var_value) if isinstance(var_value, (list, dict, tuple, set)) else str(var_value)
+        content = content.replace(var_name, var_value)
+        return content
+
+    # 从内容中提取所有变量名
+    @staticmethod
+    def _extract_variables(content: str):
+        """
+        从内容中提取所有变量名, 变量格式为{{variable}}
+        :param content:
+        :return: 返回变量名list
+        """
+        variable_regexp = r"{{([^\n}]+)}}"
+        if not isinstance(content, str):
+            content = str(content)
+        try:
+            return re.findall(variable_regexp, content)
+        except TypeError:
+            return []
+
+    # 提取变量->读取cache中对应变量值->替换变量名
+    def replace_variables(self, content: str):
+        """
+        从字符传 content 中提取变量 -> 读取cache中对应变量值 -> 替换content中变量名
+        :param content:
+        :return:
+        """
+        var_list = self._extract_variables(content)
+        for var_name in var_list:
+            vaild_var_name = var_name.strip()  # 处理变量名前后空白符
+            if vaild_var_name.endswith("]"):
+                # 列表取元素
+                regexp = r"([\w_]+)\[(\d+)\]"
+                vns = re.findall(regexp, vaild_var_name)
+                if vns:
+                    k, idx = vns[0]
+                    var_value = self.get_cache(k)[int(idx)]
+                else:
+                    var_value = self.get_cache(vaild_var_name)
+            elif vaild_var_name.endswith(")"):
+                # 调用方法取返回值 TODO
+                var_value = self.get_cache(vaild_var_name)
+            else:
+                var_value = self.get_cache(vaild_var_name)
+            content = self._replace_var(content, var_name, var_value)
+        return content
+
+    # content字符串变量的解析、处理， 返回字典
+    def content_to_dict(self, content: str):
+        """
+        content字符串变量的解析、处理， 返回字典
+        :param content:
+        :return:
+        """
+        content = self.replace_variables(content)  # 替换字符串中变量
+        try:
+            return json.loads(content, strict=False)
+        except Exception as e:
+            logger.error("JSONDecodeError: JSON Content: {}".format(content))
+            raise e
+
+    # 期望输出的格式化处理
+    def format_res_expect(self, expect: dict):
+        """
+        期望输出的格式化处理：设置默认校验规则
+        :param expect:
+        :return:返回字典
+        """
+        ep_keys = expect.keys()
+        if set(ep_keys).issubset(set(self._validate_type)):
+            return expect
+        return {"eq": expect}
 
     @staticmethod
     def get_text(res_text, expr, get_all=False):
@@ -156,31 +225,7 @@ class BaseApi(object):
             logger.error(e)
             raise Exception(e)
 
-    def validate_status_code(self, response, expect_value, compare_method='eq'):
-        """
-        验证状返回态码
-        :param response:
-        :param expect_value:
-        :param compare_method:
-        :return:
-        """
-        expr = "status_code"
-        actual_value = response.status_code
-        if compare_method == "eq":
-            assert actual_value == expect_value, (actual_value, expect_value)
-        elif compare_method in ["neq", "ne"]:
-            assert actual_value != expect_value, (actual_value, expect_value)
-        else:
-            raise Exception(f"错误的关键字'{compare_method}'，仅支持比较： eq-相等，neq/ne-不相等")
-        logger.info("期望({}){}:{}, 实际{}:{} PASS...".format(compare_method, expr, expect_value, expr, actual_value))
-        return True
-
     def validate_response_data(self, response, expr, expect_value, compare_method='eq'):
-        if isinstance(expect_value, str) and "$" in expect_value:
-            expect_value = self.replace_variables(expect_value)
-        if isinstance(expr, str) and "$" in expr:
-            expr = self.replace_variables(expr)
-
         get_all = True if compare_method in ["in_list", "not_in_list"] else False
         actual_value = self.get_text(response.text, expr, get_all=get_all)
         assert_err_msg = "期望({})：{}, 实际：{}\n响应：{}".format(compare_method, expect_value, actual_value, response.text)
@@ -228,101 +273,11 @@ class BaseApi(object):
                 if expect_value in ['', [], {}]:
                     logger.info("期望({}){}:{}, 跳过检查...".format(compare, expr, expect_value))
                     continue
-                # self.validate_status_code(response, expr, expect_value, compare)
                 self.validate_response_data(response, expr, expect_value, compare)
         return True
 
-    # 替换内容中的变量, 返回字符串型
-    @staticmethod
-    def replace_var(content, var_name, var_value):
-        """
-        替换内容中的变量, 返回字符串型，即 $var --> value
-        :param content:
-        :param var_name: $var
-        :param var_value:
-        :return:
-        """
-        if not isinstance(content, str):
-            content = json.dumps(content)
-        var_name = "$" + var_name
-        var_value = json.dumps(var_value) if isinstance(var_value, (list, dict, tuple, set)) else str(var_value)
-        content = content.replace(str(var_name), var_value)
-        return content
-
-    # 从内容中提取所有变量名, 变量格式为$variable,返回变量名list
-    @staticmethod
-    def extract_variables(content: str):
-        variable_regexp = r"\$([\w\[\d+\]_(=)]+)"  # \$([\w_]+)
-        if not isinstance(content, str):
-            content = str(content)
-        try:
-            return re.findall(variable_regexp, content)
-        except TypeError:
-            return []
-
-    def replace_variables(self, content: str):
-        """
-        从字符传 content 中提取变量 -> 读取cache中对应变量值 -> 替换content中变量名
-        :param content:
-        :return:
-        """
-        # 检查是否存在变量
-        var_list = self.extract_variables(content)
-        for var_name in var_list:
-            if var_name.endswith("]"):
-                # 列表取元素
-                regexp = r"([\w_]+)\[(\d+)\]"
-                vns = re.findall(regexp, var_name)
-                if vns:
-                    k, idx = vns[0]
-                    var_value = self.get_cache(k)[int(idx)]
-                else:
-                    var_value = self.get_cache(var_name)
-            elif var_name.endswith(")"):
-                # 调用方法取返回值
-                var_value = eval("data_faker."+var_name)
-            else:
-                var_value = self.get_cache(var_name)
-            content = self.replace_var(content, var_name, var_value)
-        return content
-
-    def do_url(self, url: str):
-        return self.replace_variables(url)
-
-    def do_params(self, params: str):
-        """
-        输入参数变量的解析、处理， 返回字典
-        :param params:
-        :return:
-        """
-        content = self.replace_variables(params)
-        try:
-            return json.loads(content, strict=False)
-        except Exception as e:
-            logger.error("JSONDecodeError: JSON Content: {}".format(content))
-            raise e
-
-    def do_expect(self, expect: dict):
-        """
-        期望输出的处理， 返回字典  -- 添加
-        :param expect:
-        :return:
-        """
-        ep_keys = expect.keys()
-        if set(ep_keys).issubset(set(self._validate_type)):
-            return expect
-        return {"eq": expect}
-
 
 if __name__ == "__main__":
-    # BaseApi().getApiTime()
     api = BaseApi()
-    # dept_ids = [1, 2, 3]
-    # json_content = '{"id":"$dept_ids[2]"}'
-    # api.set_cache_kv("dept_ids", dept_ids)
-    # print(api.do_params(json_content))
-    # print(api.get_text('{"success":true,"code":500200,"msg":"ok","data":{}}', "success"))
     js = '{"data":[{"group_id":12, "id": "aad", "tags":["111a"]}, {"group_id":345, "id": "ssa", "tags":["222a"]}]}'
-    # api.set_cache(json.loads(js), "$..data[?(@.group_id>=10)].id", "kk")
     print(jsonpath(json.loads(js), "$..data[?(@.length>1)]"))
-    # api.set_cache(json.loads(js), "$..data.length", "kk")

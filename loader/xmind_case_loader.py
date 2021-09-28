@@ -12,6 +12,9 @@ import re
 import json
 from xmindparser import xmind_to_dict
 
+from config import HOST_TAG_CHOICE, SEVERITY_TAG_CHOICE
+from pkgs.utils import is_contains_chinese
+
 
 def to_safe_name(s):
     return str(re.sub("[^a-zA-Z0-9_]+", "_", s))
@@ -45,103 +48,135 @@ class XmindCaseLoader(object):
         """
         获取画布内所有API-CASE信息
         :return: {
-        'api-1':[
-            {'suite':'', 'name': 'case1', 'desc': '描述', 'method': 'get', 'path': '/api/xxx/s', 'data': {}, 'res': ''},
-            {case2},
-            ],
-        'api-2': [],
+            "suite": "SuiteName",
+            "desc": "Suite Description",
+            "api_list": [
+                {
+                    "api_name": ""
+                    "test_case_list": [
+                        {
+                            "case_name": ""
+                            "data": "{}"
+                            "expect": "{}"
+                            "set_values": "{}"
+                        }
+                    ]
+                }
+            ]
         }
         """
         canvas_data = {}
-        api_case_dict_list = []
         canvas_topic = self.get_canvas_topic(canvas)
-        module_name = canvas_topic.get('title')
+        suite_name = canvas_topic.get('title')
+        api_list = canvas_topic.get('topics', [])
+
         canvas_data['desc'] = canvas
-        canvas_data['module'] = module_name
-        api_list = canvas_topic.get('topics') or []
+        canvas_data['suite'] = suite_name
+        canvas_data['api_list'] = []
+        # 读取api信息
         for api in api_list:
             api_dict = {}
-            api_name = api.get('title') if api.get('title') else ""
-            api_desc = api.get('note') if api.get('note') else ""
-            api_labels = api.get('labels')  # depends、host、sleep
+            api_dict['priority'] = 0
+            api_title = api.get('title', '')
+            api_note = api.get('note', '')
+            # title、note：把有中文符号的当作描述
+            if is_contains_chinese(api_title):
+                api_name, api_desc = to_safe_name(api_note), api_title
+            else:
+                api_name, api_desc = to_safe_name(api_title), api_note
             api_dict['api_name'] = api_name
             api_dict['api_desc'] = api_desc
-            api_dict['api_desc'] = api_desc
+
+            api_topics = api.get('topics')
+            if not api_topics:
+                continue  # steup/teardown 没有下级子主题
+            # api 标记处理 -- makers
+            api_makers = api.get('makers', [])
+            for amk in api_makers:
+                priority = amk.split('priority-')  # priority 优先级处理
+                if len(priority) == 2:
+                    api_dict['priority'] = int(priority[-1])
+            # api 标签处理 -- labels
+            api_labels = api.get('labels', [])
             api_dict['depends'] = []  # depends 依赖标签
             api_dict['sleep'] = 0  # sleep 标签
             api_dict['skipif'] = ""  # skipif 标签
-            host_tag = "host_" + HOST_TAG_CHOICE[0]  # host 标签
-            if api_labels:
-                for alb in api_labels:
-                    lb_dps = alb.split("depends=")
-                    lb_dps2 = alb.split("name=")
-                    lb_sleep = alb.split("sleep=")
-                    lb_skipif = alb.split("skipif=")
-                    lb_host = alb.split("host=")
-                    if len(lb_dps) == 2:
-                        api_dict['depends'].append(lb_dps[-1])
-                    if len(lb_dps2) == 2:
-                        api_dict['depends'].append(lb_dps2[-1])
-                    if len(lb_sleep) == 2:
-                        api_dict['sleep'] = int(lb_sleep[-1])
-                    if len(lb_skipif) == 2:
-                        api_dict['skipif'] = lb_skipif[-1]
-                    if len(lb_host) == 2 and lb_host[-1] in HOST_TAG_CHOICE:
-                        host_tag = "host_" + lb_host[-1]
-            api_dict['host_tag'] = host_tag
-            api_dict['test_case_list'] = []
-            api_detail = api.get('topics')[0]
-            path = api_detail.get('title') or ""
-            rq = api_detail.get('topics')[0]
-            method = rq.get('title') or ""
+            host_tag = HOST_TAG_CHOICE[0]  # host 标签
+            for alb in api_labels:
+                lb_dps = alb.split("depends=")
+                lb_dps2 = alb.split("name=")
+                lb_sleep = alb.split("sleep=")
+                lb_skipif = alb.split("skipif=")
+                lb_host = alb.split("host=")
+                if len(lb_dps) == 2:
+                    api_dict['depends'].append(lb_dps[-1])
+                if len(lb_dps2) == 2:
+                    api_dict['depends'].append(lb_dps2[-1])
+                if len(lb_sleep) == 2:
+                    api_dict['sleep'] = int(lb_sleep[-1])
+                if len(lb_skipif) == 2:
+                    api_dict['skipif'] = lb_skipif[-1]
+                if len(lb_host) == 2 and lb_host[-1] in HOST_TAG_CHOICE:
+                    host_tag = lb_host[-1]
+            api_dict['host_tag'] = "host_" + host_tag
+
+            # 读取api详情
+            api_detail = api_topics[0]
+            path = api_detail.get('title', '')
+            api_req = api_detail.get('topics')
+            if not api_req:
+                continue  # steup/teardown 没有下级子主题
+            rq = api_req[0]
+            method = rq.get('title', '')
             api_dict['path'] = path
             api_dict['method'] = method
+
+            # 读取case配置
             case_cf_list = rq.get('topics')
+            api_dict['test_case_list'] = []
             if api_name.startswith('#'):  # 被注释掉的接口，不解析用例参数
                 continue
             for idx, case in enumerate(case_cf_list):
-                if case.get('title').startswith('#'):  # 被注释掉的用例
+                if case.get('title', '').startswith('#'):  # 被注释掉的用例
                     continue
                 case_dict = {}
-                case_labels = case.get('labels')  # priority
-                case_dict['module'] = module_name  # 模块名
-                case_dict['api_name'] = api_name  # api名
-                case_dict['host_tag'] = host_tag  # host_qw / host_mk
-                case_dict['api_desc'] = api_desc  # api描述
+                # 继承API配置属性
+                case_dict['suite'] = suite_name  # 模块名
+                case_dict['api_name'] = api_dict['api_name']  # api名
+                case_dict['api_desc'] = api_dict['api_desc']  # api描述
+                case_dict['priority'] = api_dict['priority']  # 优先级
+                case_dict['host_tag'] = api_dict['host_tag']  # host_qw / host_mk
                 case_dict['depends'] = api_dict['depends']  # api依赖
                 case_dict['sleep'] = api_dict['sleep']  # api sleep
                 case_dict['skipif'] = api_dict['skipif']  # api skipif
-                case_dict['name'] = f"{api_name}_" + str(idx+1).zfill(3)  # case名
-                case_dict['desc'] = case.get('title')  # 描述
-                case_dict['priority'] = ""  # 优先级
-                if case_labels:
-                    for clb in case_labels:
-                        if clb in PRIORITY_TAG_CHOICE:
-                            case_dict['priority'] = clb
-                            break
-                case_dict['method'] = method  # method: get/post/...
-                case_dict['path'] = path  # api path
-                case_input_output = case.get('topics')[0]
-                case_dict['data'] = case_input_output.get('title')  # 输入
-                output_set_vars = case_input_output.get('topics')
-                str_expect = output_set_vars[0].get('title')
-                try:
-                    case_dict['expect'] = json.loads(str_expect, strict=False)  # 输出
-                except Exception as e:
-                    print("API:{0}->{1}\nJSON Content:{2}".format(module_name, api_name, str_expect))
-                    raise e
-                case_dict['set_vars'] = {}
-                if len(output_set_vars) > 1:
-                    str_set_vars = output_set_vars[1].get('title')
-                    try:
-                        case_dict['set_vars'] = json.loads(str_set_vars, strict=False)  # 需要设置为全局的变量，key-value， key为保存变量名，value为字段查询名或jsonpath
-                    except Exception as e:
-                        print("API:{0}->{1}\nJSON Content:{2}".format(module_name, api_name, str_set_vars))
-                        raise e
-                api_dict['test_case_list'].append(dict(case_dict))
-            api_case_dict_list.append(api_dict)
+                case_dict['method'] = api_dict['method']  # method: get/post/...
+                case_dict['path'] = api_dict['path']  # api path
+                # case 配置
+                case_dict['name'] = "{}_{}".format(api_name, str(idx+1).zfill(3))  # case名
+                case_dict['desc'] = case.get('title', '')  # 描述
+                case_dict['severity'] = ""  # 严重度
+                # case 标签处理
+                case_labels = case.get('labels', [])
+                for clb in case_labels:
+                    lb_severity = clb.split("severity=")
+                    if len(lb_severity) == 2:
+                        severity = lb_severity[-1]
+                        if severity in SEVERITY_TAG_CHOICE:
+                            case_dict['severity'] = severity
+                            break  # 只取一个
 
-        canvas_data['api_case_list'] = api_case_dict_list
+                # case 输入、输出、设置变量 处理
+                case_data = case.get('topics')
+                req_data = case_data[0].get('title', '{}')  # 输入参数
+                res_expect = case_data[1].get('title', '{}')  # 期望输出
+                # 需要设置为全局的变量，key-value， key为保存变量名，value为字段查询名或jsonpath
+                res_set_cache = case_data[2].get('title', '{}') if len(case_data) > 2 else '{}'
+                case_dict['req_data'] = req_data
+                case_dict['res_expect'] = res_expect
+                case_dict['res_set_cache'] = res_set_cache
+                api_dict['test_case_list'].append(dict(case_dict))
+            canvas_data['api_list'].append(api_dict)
+
         return canvas_data
 
     def get_xmind_data(self):
@@ -149,4 +184,7 @@ class XmindCaseLoader(object):
 
 
 if __name__ == '__main__':
-    pass
+    xcl = XmindCaseLoader("../doc/用例设计规范.xmind", "用例设计-示例")
+    res = xcl.get_xmind_data()
+    # print(res)
+    print(json.dumps(res, ensure_ascii=False))

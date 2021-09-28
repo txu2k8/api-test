@@ -1,0 +1,58 @@
+auth:
+  name: 通过计费获取超管session id
+  request:
+    method: get
+    path: /api/v1/public/account/backServiceAddress
+    headers:
+      Content-Type: application/json
+      Authorization: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJ3cGJpbGwiLCJzdWIiOiJ0ZXN0X2RlcHQifQ.bd0HKqB-LV7xYIk_9N8SqmUAhwe4uzZplkJlRSTvWL4
+    params:
+  validate:
+    - eq: { status_code: 200 }
+
+bill:
+  name: 获取计费登录token
+  request:
+    method: post
+    path: /api/v1/login
+    headers:
+      Content-Type: application/json
+    data: {"token": "sXiPfiTfni3axLGbk7WdMuwAFvA9yWWc", "type": "qr" }
+  validate:
+    - eq: { status_code: 200 }
+
+department:
+  name: 爬取并解析部门信息
+  request:
+    method: post
+    path: /qw-scrm-svc/action/department/allList
+    headers:
+      User-Agent:
+      Authorization:
+    data:
+  validate:
+    - eq: { status_code: 200 }
+
+employee:
+  name: 爬取并解析员工信息
+  request:
+    method: get
+    path: /biz/v1/qw_account/address-book/user/list
+    headers:
+      User-Agent:
+      Authorization:
+    params:
+  validate:
+    - eq: { status_code: 200 }
+
+employee_role:
+  name: 爬取并解析员工角色信息
+  request:
+    method: post
+    path: /qw-scrm-svc/action/setting/role/list
+    headers:
+      User-Agent:
+      Authorization:
+    params:
+  validate:
+    - eq: { status_code: 200 }

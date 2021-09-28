@@ -9,7 +9,8 @@
 """
 
 HOST_TAG_CHOICE = ["mk", "qw", "bill", "qyapi"]  # 对应 host_<mk/qw>
-PRIORITY_TAG_CHOICE = ["critical", "blocker", "normal"]
+SEVERITY_TAG_CHOICE = ["critical", "blocker", "normal"]  # 严重程度
+PRIORITY_TAG_CHOICE = [1, 2, 3, 4]  # 优先级
 
 
 if __name__ == '__main__':
