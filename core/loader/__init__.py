@@ -3,9 +3,9 @@
 """
 @author:TXU
 @file:__init__.py.py
-@time:2021/09/29
+@time:2021/09/26
 @email:tao.xu2008@outlook.com
-@description:
+@description:测试用例数据读取、组装 -- xmind / excel
 """
 
 if __name__ == '__main__':

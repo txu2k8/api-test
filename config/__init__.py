@@ -11,7 +11,7 @@
 import os
 from config.cf_rw import *
 from config.options import *
-from pkgs.xlog import LogWriter
+from core.pkgs.xlog import LogWriter
 
 # 项目root目录
 root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../"))

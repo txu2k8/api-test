@@ -11,7 +11,7 @@ import os
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from config import logger, root_dir, read_yaml
-from spiders.auth import Auth
+from core.spiders.auth import Auth
 
 
 class EmployeeSpider(Auth):
@@ -28,7 +28,7 @@ class EmployeeSpider(Auth):
         爬取员工角色信息
         :return:
         """
-        kwargs = read_yaml(os.path.join(root_dir, "spiders/spiders.yaml"))["employee_role"]
+        kwargs = read_yaml(os.path.join(root_dir, "core/spiders/spiders.yaml"))["employee_role"]
         rq = self.assignment(kwargs["request"])
         url = self.url + rq['path']
         data = {
@@ -77,7 +77,7 @@ class EmployeeSpider(Auth):
         """
         logger.info("获取员工信息...")
         role_info = self.get_role_info()
-        kwargs = read_yaml(os.path.join(root_dir, "spiders/spiders.yaml"))["employee"]
+        kwargs = read_yaml(os.path.join(root_dir, "core/spiders/spiders.yaml"))["employee"]
         rq = self.assignment(kwargs["request"])
         if dept_ids is None:
             return self.get_dept_employees(1, rq, role_info)

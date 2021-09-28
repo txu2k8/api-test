@@ -10,7 +10,7 @@
 import os
 from collections import defaultdict
 from config import root_dir, read_yaml
-from spiders.auth import Auth
+from core.spiders.auth import Auth
 
 
 class DepartmentSpider(Auth):
@@ -23,7 +23,7 @@ class DepartmentSpider(Auth):
         pass
 
     def get_departments(self):
-        kwargs = read_yaml(os.path.join(root_dir, "spiders/spiders.yaml"))["department"]
+        kwargs = read_yaml(os.path.join(root_dir, "core/spiders/spiders.yaml"))["department"]
         rq = self.assignment(kwargs["request"])
         url = self.url + rq["path"]
         response = self.api.request(rq['method'], url, headers=rq["headers"]).json()

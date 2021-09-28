@@ -14,8 +14,8 @@ import pytest
 from collections import defaultdict
 import config
 from config import logger, root_dir, get_global_value, xml_report_path, html_report_path
-from pkgs.utils import remove_files, get_list_intersection
-from loader.case_loader import CaseLoader
+from core.pkgs.utils import remove_files, get_list_intersection
+from core.loader.case_loader import CaseLoader
 
 
 def test_parser():
@@ -45,7 +45,7 @@ def generate_py_testcase(args):
     logger.info("删除testcase/test_*.py".center(70, '>'))
     remove_files(os.path.join(root_dir, "testcase"), "test_*.py")
     logger.info('测试开始'.center(70, '>'))
-    from creator.pytest_creator import create_testcase
+    from core.creator.py_creator import create_testcase
     data_subdir_list = args.data_subdir_list or [None]
     for data_subdir in data_subdir_list:
         for item in CaseLoader(sub_dir=data_subdir).load():

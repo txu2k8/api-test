@@ -13,7 +13,7 @@ import json
 from xmindparser import xmind_to_dict
 
 from config import HOST_TAG_CHOICE, SEVERITY_TAG_CHOICE
-from pkgs.utils import is_contains_chinese
+from core.pkgs.utils import is_contains_chinese
 
 
 def to_safe_name(s):
@@ -184,7 +184,7 @@ class XmindCaseLoader(object):
 
 
 if __name__ == '__main__':
-    xcl = XmindCaseLoader("../doc/用例设计规范.xmind", "用例设计-示例")
+    xcl = XmindCaseLoader("../../doc/用例设计规范.xmind", "用例设计-示例")
     res = xcl.get_xmind_data()
     # print(res)
     print(json.dumps(res, ensure_ascii=False))

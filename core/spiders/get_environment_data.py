@@ -8,8 +8,8 @@
 @description:获取、爬取当前环境相关数据
 """
 from config import environment, get_global_value
-from spiders.employee import EmployeeSpider
-from spiders.department import DepartmentSpider
+from core.spiders.employee import EmployeeSpider
+from core.spiders.department import DepartmentSpider
 
 
 class GetEnvData(object):

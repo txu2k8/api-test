@@ -11,8 +11,8 @@ import re
 import pytest
 from collections import defaultdict
 from config import cf, logger, set_global_value, get_global_value
-from spiders.get_environment_data import GetEnvData
-from spiders.auth import Auth
+from core.spiders.get_environment_data import GetEnvData
+from core.spiders.auth import Auth
 
 
 @pytest.fixture(scope='session', autouse=True)

@@ -9,8 +9,8 @@
 """
 import os
 from config import logger, case_data_path
-from loader.xmind_case_loader import XmindCaseLoader
-from loader.excel_case_loader import ExcelCaseLoader
+from core.loader.xmind_case_loader import XmindCaseLoader
+from core.loader.excel_case_loader import ExcelCaseLoader
 
 supported_f_type = (
     ".xmind",

@@ -9,7 +9,7 @@
 """
 import os
 from config import cf, environment, get_global_value, read_yaml, root_dir, logger
-from api.base_api import BaseApi
+from core.api.base_api import BaseApi
 
 
 class Auth:
@@ -27,7 +27,7 @@ class Auth:
 
     def get_session(self):
         """通过计费获取超管session id"""
-        kwargs = read_yaml(os.path.join(root_dir, "spiders/spiders.yaml"))
+        kwargs = read_yaml(os.path.join(root_dir, "core/spiders/spiders.yaml"))
         rq = kwargs["auth"]["request"]
         url = self.host_bill + rq['path']
         res = self.api.request(rq['method'], url, headers=rq["headers"], params={"id": self.company_id})
@@ -38,7 +38,7 @@ class Auth:
 
     def get_bill_session(self):
         """获取计费系统token"""
-        kwargs = read_yaml(os.path.join(root_dir, "spiders/spiders.yaml"))
+        kwargs = read_yaml(os.path.join(root_dir, "core/spiders/spiders.yaml"))
         rq = kwargs["bill"]["request"]
         url = self.host_bill + rq['path']
         res = self.api.request(rq['method'], url, headers=rq["headers"], json=rq['data'])
@@ -49,7 +49,7 @@ class Auth:
 
     def get_login_session(self):
         """获取当前登录用户信息"""
-        kwargs = read_yaml(os.path.join(root_dir, "spiders/spiders.yaml"))
+        kwargs = read_yaml(os.path.join(root_dir, "core/spiders/spiders.yaml"))
         rq = kwargs["auth"]["request"]
         host_qw = environment.get_str(self.test_env, 'host_qw')
         host = host_qw.replace("https://", "https://{}-".format(environment.get_str(self.test_env, 'corp_id')))

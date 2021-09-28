@@ -8,8 +8,5 @@
 @description:
 """
 
-from data_factory.data_faker import DataFaker
-
-
 if __name__ == '__main__':
     pass

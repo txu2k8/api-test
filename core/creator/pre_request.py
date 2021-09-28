@@ -8,7 +8,7 @@
 @description:
 """
 from config import cf, environment, get_global_value, get_global_dict, set_global_value
-from api.base_api import BaseApi
+from core.api.base_api import BaseApi
 
 
 class PreRequest(object):

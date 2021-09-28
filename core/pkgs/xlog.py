@@ -21,7 +21,7 @@ class LogWriter:
 
     def __init__(self, log_path=None, file_level="DEBUG", console_level="INFO"):
         timer = time.time()
-        log_path = log_path or os.path.abspath(os.path.join(os.path.dirname(__file__), "../log"))
+        log_path = log_path or os.path.abspath(os.path.join(os.path.dirname(__file__), "../../log"))
         self.log_name = Path(log_path, f'message_{timer}.log')
         logger.add(self.log_name, rotation='100 MB', retention='7 days', enqueue=True, encoding="utf-8", level=file_level)
         logger.add(sys.stdout, level=console_level)

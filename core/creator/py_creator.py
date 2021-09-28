@@ -15,7 +15,7 @@ import types
 import pytest
 import allure
 from config import logger, testcase_path
-from pkgs.utils import is_contains_chinese, sleep_progressbar
+from core.pkgs.utils import is_contains_chinese, sleep_progressbar
 from operator import methodcaller
 
 
@@ -38,8 +38,8 @@ def create_testcase(module_name: str, module_data: list):
 
 import pytest
 import allure
-from creator.pre_request import PreRequest
-from creator.pytest_creator import CaseMetaClass
+from core.creator.pre_request import PreRequest
+from core.creator.py_creator import CaseMetaClass
 
 '''
 
@@ -192,7 +192,7 @@ def create_function(function_express, namespace=None):
 
 if __name__ == '__main__':
     from config import root_dir
-    from loader.xmind_case_loader import XmindCaseLoader
+    from core.loader.xmind_case_loader import XmindCaseLoader
 
     tc_file = os.path.join(root_dir, 'doc', '用例设计规范.xmind')
     m_name = os.path.split(tc_file)[-1].split('.')[0]
