@@ -11,7 +11,7 @@ import re
 import json
 from jsonpath import jsonpath
 from config import logger
-from core.data_factory.data_faker import DataFaker
+from core.data_factory.data_faker import *
 
 
 class DataParser(object):
@@ -119,7 +119,7 @@ class DataParser(object):
                     var_value = self.get_cache(vaild_var_name)
             elif vaild_var_name.endswith(")"):
                 # 调用方法取返回值
-                var_value = eval("DataFaker()." + var_name)
+                var_value = eval(var_name)
             else:
                 var_value = self.get_cache(vaild_var_name)
             content = self._replace_var(content, var_name, var_value)
